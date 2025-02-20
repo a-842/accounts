@@ -1,0 +1,16 @@
+{% extends 'layout.html' %}
+{% block content %}
+<h1>Todo</h1>
+<form method="POST" action="{{ url_for('add_todo') }}">
+    <input type="text" name="task" placeholder="New Task" required>
+    <button type="submit">Add Task</button>
+</form>
+<div class="todos">
+    {% for todo in todos %}
+    <div class="todo">
+        <input type="checkbox" {% if todo.completed %}checked disabled{% endif %}>
+        <span class="task">{{ todo.task }}</span>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
