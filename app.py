@@ -1,164 +1,92 @@
-from flask import Flask, render_template, redirect, url_for, flash, request
+from flask import Flask, render_template, redirect, url_for, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
-from random import shuffle
+import markdown
 
+# Initialize the Flask app
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'ainsworth is good'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
+app.config['SECRET_KEY'] = 'your_secret_key'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'
 db = SQLAlchemy(app)
-login_manager = LoginManager()
-login_manager.init_app(app)
+login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
+# Models (imported from models.py)
+from models import User, Note, Todo, Person
 
-# User model
-class User(UserMixin, db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(150), unique=True, nullable=False)
-    password_hash = db.Column(db.String(150), nullable=False)
-    is_admin = db.Column(db.Boolean, default=False)
-
+# User Loader
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-
-@app.route('/')
-def home():
-    if current_user.is_authenticated:
-        return redirect(url_for("dashboard"))
-    return render_template('index.html')
-
-
-@app.route('/dashboard')
-@login_required
-def dashboard():
-    return render_template('dashboard.html', username=current_user.username)
-
-
-# Route for users to change their own password
-@app.route('/change_password', methods=['GET', 'POST'])
-@login_required
-def change_password():
-    if request.method == 'POST':
-        old_password = request.form['old_password']
-        new_password = request.form['new_password']
-
-        if check_password_hash(current_user.password_hash, old_password):
-            current_user.password_hash = generate_password_hash(new_password)
-            db.session.commit()
-            flash('Password changed successfully!', 'success')
-            return redirect(url_for('dashboard'))
-        else:
-            flash('Incorrect old password!', 'danger')
-
-    return render_template('change_password.html')
-
-
-# Admin panel
-@app.route('/admin', methods=['GET', 'POST'])
-@login_required
-def admin():
-    if not current_user.is_admin:
-        return "Access Denied", 403
-
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        if User.query.filter_by(username=username).first():
-            flash('Username already taken', 'warning')
-        else:
-            hashed_password = generate_password_hash(password)
-            new_user = User(username=username, password_hash=hashed_password)
-            db.session.add(new_user)
-            db.session.commit()
-            flash(f'User {username} created successfully!', 'success')
-
-    users = User.query.all()
-    return render_template('admin.html', users=users)
-
-
-@app.route('/admin/delete/<int:user_id>', methods=['POST'])
-@login_required
-def delete_user(user_id):
-    if not current_user.is_admin:
-        return "Access Denied", 403
-
-    user = User.query.get(user_id)
-    if user:
-        db.session.delete(user)
-        db.session.commit()
-        flash(f'User {user.username} deleted successfully.', 'success')
-    else:
-        flash('User not found.', 'danger')
-
-    return redirect(url_for('admin'))
-
-
-@app.route('/admin/reset_password/<int:user_id>', methods=['POST'])
-@login_required
-def reset_password(user_id):
-    if not current_user.is_admin:
-        return "Access Denied", 403
-
-    user = User.query.get(user_id)
-    new_password = request.form['new_password']
-
-    if user:
-        user.password_hash = generate_password_hash(new_password)
-        db.session.commit()
-        flash(f'Password for {user.username} has been reset.', 'success')
-    else:
-        flash('User not found.', 'danger')
-
-    return redirect(url_for('admin'))
-
-
+# Routes
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    if current_user.is_authenticated:
-        return redirect(url_for("dashboard"))
-
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
+        username = request.form.get('username')
+        password = request.form.get('password')
         user = User.query.filter_by(username=username).first()
-
-        if user and check_password_hash(user.password_hash, password):
+        if user and check_password_hash(user.password, password):
             login_user(user)
-
-            # Redirect admins to the admin panel
-            if user.is_admin:
-                return redirect(url_for('admin'))
-
-            # Regular users go to the dashboard
-            return redirect(url_for('dashboard'))
-
-        flash('Invalid username or password', 'danger')
-
+            return redirect(url_for('notes'))
     return render_template('login.html')
-
 
 @app.route('/logout')
 @login_required
 def logout():
     logout_user()
-    return redirect(url_for('home'))
+    return redirect(url_for('login'))
 
+@app.route('/notes')
+@login_required
+def notes():
+    notes = Note.query.filter_by(user_id=current_user.id).all()
+    return render_template('notes.html', notes=notes)
 
+@app.route('/todo')
+@login_required
+def todo():
+    todos = Todo.query.filter_by(user_id=current_user.id, parent_id=None).all()
+    return render_template('todo.html', todos=todos)
+
+@app.route('/people')
+@login_required
+def people():
+    people = Person.query.filter_by(user_id=current_user.id).all()
+    return render_template('people.html', people=people)
+
+@app.route('/add_note', methods=['POST'])
+@login_required
+def add_note():
+    title = request.form.get('title')
+    content = request.form.get('content')
+    folder = request.form.get('folder')
+    note = Note(title=title, content=content, folder=folder, user_id=current_user.id)
+    db.session.add(note)
+    db.session.commit()
+    return redirect(url_for('notes'))
+
+@app.route('/add_todo', methods=['POST'])
+@login_required
+def add_todo():
+    task = request.form.get('task')
+    todo = Todo(task=task, user_id=current_user.id)
+    db.session.add(todo)
+    db.session.commit()
+    return redirect(url_for('todo'))
+
+@app.route('/add_person', methods=['POST'])
+@login_required
+def add_person():
+    name = request.form.get('name')
+    dob = request.form.get('dob')
+    relationship = request.form.get('relationship')
+    person = Person(name=name, dob=dob, relationship=relationship, user_id=current_user.id)
+    db.session.add(person)
+    db.session.commit()
+    return redirect(url_for('people'))
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-        if User.query.count() == 0:  # First user becomes admin
-            admin_user = User(username="admin", password_hash=generate_password_hash("adminpass"), is_admin=True)
-            db.session.add(admin_user)
-            db.session.commit()
-            print("Admin account created (username: admin, password: adminpass)")
-
     app.run(debug=True, host="0.0.0.0", port="5003")
