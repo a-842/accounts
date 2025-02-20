@@ -1,0 +1,18 @@
+{% extends 'layout.html' %}
+{% block content %}
+<h1>People</h1>
+<form method="POST" action="{{ url_for('add_person') }}">
+    <input type="text" name="name" placeholder="Name" required>
+    <input type="text" name="dob" placeholder="Date of Birth" required>
+    <input type="text" name="relationship" placeholder="Relationship" required>
+    <button type="submit">Add Person</button>
+</form>
+<div class="people">
+    {% for person in people %}
+    <div class="person-card">
+        <h3>{{ person.name }}</h3>
+        <p>{{ person.dob }} - {{ person.relationship }}</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
