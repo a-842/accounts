@@ -152,10 +152,11 @@ def forgot_password():
 # Route: Reset Password
 @app.route('/reset/<token>', methods=['GET', 'POST'])
 def reset_password(token):
+    print(f"Token Recieved: {token}")
     try:
-        email = s.loads(token, salt='password-reset-salt', max_age=3600)  # Token expires in 1 hour
-    except:
-        flash('The link is invalid or has expired.', 'danger')
+        email = s.loads(token, salt='password-reset-salt', max_age=3600)  # 1-hour expiry
+    except Exception as e:
+        flash('The reset link is invalid or has expired.', 'danger')
         return redirect(url_for('forgot_password'))
 
     if request.method == 'POST':
@@ -168,6 +169,7 @@ def reset_password(token):
             return redirect(url_for('login'))
 
     return render_template('reset.html')
+
 
 if __name__ == '__main__':
     with app.app_context():
