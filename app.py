@@ -153,4 +153,5 @@ def delete_account():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(port=5003, host="0.0.0.0")
+    from waitress import serve
+    serve(app, port=5003, host="0.0.0.0")
