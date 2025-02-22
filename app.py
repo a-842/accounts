@@ -128,7 +128,8 @@ def forgot_password():
 
         if user:
             token = s.dumps(email, salt='password-reset-salt')
-            reset_link = url_for('reset_password', token=token, _external=True)
+            reset_link = url_for('reset_password', token=token, _external=True, _scheme='https', _anchor=None)
+
 
             msg = Message('Password Reset Request', sender=app.config['MAIL_USERNAME'], recipients=[email])
             msg.body = f'Click the link to reset your password: {reset_link}'
