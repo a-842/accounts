@@ -169,6 +169,25 @@ def reset_password(token):
 
     return render_template('reset.html')
 
+@app.route('/delete_account', methods=['POST'])
+@login_required
+def delete_account():
+    password = request.form['password']
+
+    # Check if password is correct
+    if not check_password_hash(current_user.password, password):
+        flash("Incorrect password. Account not deleted.", "danger")
+        return redirect(url_for('dashboard'))
+
+    # Delete user from the database
+    db.session.delete(current_user)
+    db.session.commit()
+
+    # Log out the user
+    logout_user()
+    flash("Your account has been deleted.", "success")
+    return redirect(url_for('index'))
+
 
 if __name__ == '__main__':
     with app.app_context():
