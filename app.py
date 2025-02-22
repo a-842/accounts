@@ -8,6 +8,8 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 import random, os
 from dotenv import load_dotenv
 
+DOMAIN = "https://acoult.art"
+
 app = Flask(__name__)
 
 load_dotenv()
@@ -132,8 +134,7 @@ def forgot_password():
 
         if user:
             token = s.dumps(email, salt='password-reset-salt')
-            reset_link = url_for('reset_password', token=token, _external=True, _scheme='https')
-
+            reset_link = f"{DOMAIN}{url_for('reset_password', token=token)}"
 
             msg = Message('Password Reset Request', sender=app.config['MAIL_USERNAME'], recipients=[email])
             msg.body = f'Click the link to reset your password: {reset_link}'
@@ -146,6 +147,7 @@ def forgot_password():
         return redirect(url_for('forgot_password'))
 
     return render_template('forgot.html')
+
 
 # Route: Reset Password
 @app.route('/reset/<token>', methods=['GET', 'POST'])
