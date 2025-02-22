@@ -4,6 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_mail import Mail, Message
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix
 import random, os
 from dotenv import load_dotenv
 
@@ -25,6 +26,9 @@ mail = Mail(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 s = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+
 
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
@@ -128,7 +132,7 @@ def forgot_password():
 
         if user:
             token = s.dumps(email, salt='password-reset-salt')
-            reset_link = url_for('reset_password', token=token, _external=True, _scheme='https', _anchor=None)
+            reset_link = url_for('reset_password', token=token, _external=True, _scheme='https')
 
 
             msg = Message('Password Reset Request', sender=app.config['MAIL_USERNAME'], recipients=[email])
