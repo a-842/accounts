@@ -1,3 +1,4 @@
+from itsdangerous import URLSafeTimedSerializer
 from flask import Flask, render_template, redirect, url_for, request, session, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
@@ -23,6 +24,7 @@ db = SQLAlchemy(app)
 mail = Mail(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
+s = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
@@ -116,6 +118,49 @@ def login():
 def logout():
     logout_user()
     return redirect(url_for('home'))
+
+# Route: Request Password Reset
+@app.route('/forgot', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form['email']
+        user = User.query.filter_by(email=email).first()
+
+        if user:
+            token = s.dumps(email, salt='password-reset-salt')
+            reset_link = url_for('reset_password', token=token, _external=True)
+
+            msg = Message('Password Reset Request', sender=app.config['MAIL_USERNAME'], recipients=[email])
+            msg.body = f'Click the link to reset your password: {reset_link}'
+            mail.send(msg)
+
+            flash('A password reset link has been sent to your email.', 'info')
+        else:
+            flash('Email not found.', 'danger')
+
+        return redirect(url_for('forgot_password'))
+
+    return render_template('forgot.html')
+
+# Route: Reset Password
+@app.route('/reset/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    try:
+        email = s.loads(token, salt='password-reset-salt', max_age=3600)  # Token expires in 1 hour
+    except:
+        flash('The link is invalid or has expired.', 'danger')
+        return redirect(url_for('forgot_password'))
+
+    if request.method == 'POST':
+        user = User.query.filter_by(email=email).first()
+        if user:
+            new_password = generate_password_hash(request.form['password'], method='pbkdf2:sha256')
+            user.password = new_password
+            db.session.commit()
+            flash('Password successfully reset! You can now log in.', 'success')
+            return redirect(url_for('login'))
+
+    return render_template('reset.html')
 
 if __name__ == '__main__':
     with app.app_context():
