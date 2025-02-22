@@ -64,14 +64,17 @@ def register():
             flash('Email already exists', 'danger')
             return redirect(url_for('register'))
 
-        verification_code = generate_password_hash(str(random.randint(100000, 999999)), method='pbkdf2:sha256')
-        user = User(email=email, name=name, password=password, verification_code=verification_code)
+        verification_code_plain = str(random.randint(100000, 999999))
+        verification_code_hashed = generate_password_hash(verification_code_plain, method='pbkdf2:sha256')
+        
+        user = User(email=email, name=name, password=password, verification_code=verification_code_hashed)
         db.session.add(user)
         db.session.commit()
-
+        
         msg = Message('Verify Your Account', sender=app.config['MAIL_USERNAME'], recipients=[email])
-        msg.body = f'Your verification code is {verification_code}'
+        msg.body = f'Your verification code is {verification_code_plain}'
         mail.send(msg)
+
 
         session['email'] = email
         return redirect(url_for('verify'))
