@@ -167,7 +167,7 @@ def reset_password(token):
 
     return render_template('reset.html')
 
-app.route('/delete_account', methods=['POST'])
+@app.route('/delete_account', methods=['POST'])
 @login_required
 def delete_account():
     password = request.form['password']
